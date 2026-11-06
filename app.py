@@ -12,12 +12,17 @@ from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import DuplicateKeyError
 
+import paho.mqtt.publish as publish
+
 load_dotenv()
 client = MongoClient(os.getenv("MONGODB_URI"), tz_aware=True)
 db = client["tutorial6"]
 devices = db["devices"]
 readings = db["readings"]
 settings = db["settings"]
+
+MQTT_BROKER = "135.232.203.144"
+MQTT_NAME = "skyethomas"
 
 devices.create_index([("mac", ASCENDING)], unique=True)
 
@@ -107,6 +112,12 @@ def put_settings(mac: str, new: Settings, response: Response):
     if result.upserted_id is not None:
         response.status_code = 201
     doc.pop("_id", None)
+    try:
+        publish.single("ecse3038/" + MQTT_NAME + "/limit", str(new.temp_limit),
+                       retain=True, hostname=MQTT_BROKER)
+    except Exception as error:
+        print("Could not publish the limit:", error)
+
     return doc
 
 
@@ -116,3 +127,5 @@ def get_settings(mac: str):
     if doc is None:
         raise HTTPException(status_code=404, detail="No settings for MAC " + mac)
     return doc
+
+#ECSE3038
